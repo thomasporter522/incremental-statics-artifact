@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This artifact contains two components: the system workbench and the Agda mechanization. The workbench both provides a web interface for interactive exploration of the system, as well as the performance testing infrastructure that supports the performance claims make in the paper. The mechanization is a complete encoding of the paper's formal metatheory and validates every lemma and theorem in the paper. 
+This artifact contains two components: the system workbench and the Agda mechanization. The workbench both provides a web interface for interactive exploration of the system, as well as the testing infrastructure that supports the performance claims make in the paper. The mechanization is a complete encoding of the paper's formal metatheory and validates every lemma and theorem in the paper. 
 
 ### Claims
 - Figure 7 (performance scatterplot): supported by the workbench

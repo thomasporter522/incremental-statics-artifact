@@ -1,0 +1,22 @@
+# dune test
+# OCAMLPARAM: unset
+# Shared cache: disabled
+# Shared cache location: /home/thomas/.cache/dune/db
+# Workspace root: /home/thomas/incremental-statics-artifact/workbench
+# Auto-detected concurrency: 8
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ /home/thomas/.opam/default/bin/ocamlc.opt -config > /tmp/dune_50a78b_output
+$ (cd _build/default && /home/thomas/.opam/default/bin/refmt --print binary test/all_tests.re) > _build/default/test/all_tests.re.ml
+$ (cd _build/default && /home/thomas/.opam/default/bin/ocamldep.opt -modules -impl test/all_tests.re.ml) > _build/default/test/.all_tests.eobjs/all_tests.impl.d
+$ (cd _build/default && /home/thomas/.opam/default/bin/refmt --print binary test/test_validity.re) > _build/default/test/test_validity.re.ml
+$ (cd _build/default && /home/thomas/.opam/default/bin/ocamldep.opt -modules -impl test/test_validity.re.ml) > _build/default/test/.all_tests.eobjs/test_validity.impl.d
+$ (cd _build/default && /home/thomas/.opam/default/bin/refmt --print binary test/test_splay.re) > _build/default/test/test_splay.re.ml
+$ (cd _build/default && /home/thomas/.opam/default/bin/ocamldep.opt -modules -impl test/test_splay.re.ml) > _build/default/test/.all_tests.eobjs/test_splay.impl.d
