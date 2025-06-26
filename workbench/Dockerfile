@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y libgmp-dev pkg-config opam
 RUN opam init --disable-sandboxing -a
 
 COPY . /app
-
 WORKDIR /app
 RUN make deps
 RUN make

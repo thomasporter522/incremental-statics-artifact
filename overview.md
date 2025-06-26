@@ -23,8 +23,10 @@ Required: UNIX-like operating system
 3. Run the benchmark, generating scatterplot and speedup ratio. 
 
 ### Mechanization
-1. Install mechanization dependenties. agda, agda standard library
-2. Run the Agda.  
+
+1. Enter the directory with: `cd mechanization/`
+2. Build the docker container with: `sudo docker build -t agda-env .`.  
+3. If step 2 completes without errors, then the Agda proofs are validated. 
 
 ## Step by Step Instructions
 
