@@ -1,3 +1,4 @@
-# workbench/_build
+workbench/_build
 workbench/out/
 workbench/log/
+mechanization/*.agdai
