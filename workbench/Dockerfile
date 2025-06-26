@@ -8,6 +8,6 @@ RUN opam init --disable-sandboxing -a
 
 COPY . /app
 
-WORKDIR /app/workbench
+WORKDIR /app
 RUN make deps
 RUN make
