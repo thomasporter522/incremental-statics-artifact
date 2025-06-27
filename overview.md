@@ -24,9 +24,18 @@ Required: UNIX-like operating system
 
 ### Mechanization
 
-1. Enter the directory with: `cd mechanization/`
-2. Build the docker container with: `sudo docker build -t agda-env .`.  
-3. If step 2 completes without errors, then the Agda proofs are validated. 
+```
+apt-get update 
+apt-get install -y build-essential git curl cabal-install libgmp-dev zlib1g-dev
+
+cabal update
+cabal install Agda-2.6.3
+
+curl -O agda-stdlib.tar.gz https://github.com/agda/agda-stdlib/archive/v2.2.tar.gz
+tar -zxvf agda-stdlib.tar.gz
+cd agda-stdlib-2.2
+cabal install
+```
 
 ## Step by Step Instructions
 
