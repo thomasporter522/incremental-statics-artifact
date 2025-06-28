@@ -33,11 +33,15 @@ First, [install Docker](https://docs.docker.com/engine/install/).
 
 ### Workbench
 
-1. Install workbench dependencies. opam, ocaml, reasonml, etc. 
-2. Build the workbench. 
-3. Run the benchmark, generating scatterplot and speedup ratio. 
+Enter the `./workbench` directory. 
+
+```
+sudo docker build -t ocaml-env .
+```
 
 ### Mechanization
+
+Enter the `./mechanization` directory. 
 
 Run the following command. If it completes without error, all theorems have been verified. 
 

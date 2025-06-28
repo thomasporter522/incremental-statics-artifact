@@ -1,0 +1,40 @@
+# Use OCaml/OPAM base image with OCaml 5.0.0 preinstalled
+FROM ocaml/opam:ubuntu-22.04-ocaml-5.0
+
+# Set working directory
+WORKDIR /workspace
+
+# Install system dependencies
+RUN sudo apt-get update && sudo apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    pkg-config \
+    libgmp-dev \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+# Update OPAM
+RUN opam update
+
+# Copy the tylr source code
+COPY . /workspace/tylr
+WORKDIR /workspace/tylr
+
+# Install essential dependencies explicitly
+RUN opam install dune reason fmt
+RUN opam install js_of_ocaml js_of_ocaml-ppx incr_dom
+RUN opam install ppx_yojson_conv ppx_deriving ppx_deriving_yojson ppx_deriving_hash sexplib
+RUN opam install ptmap uutf re sedlex
+# Try to install remaining dependencies
+# RUN opam install --deps-only .
+
+# Create a build script in a user-writable location
+RUN mkdir -p /home/opam/.local/bin && \
+    echo '#!/bin/bash\n\
+cd /workspace/tylr\n\
+dune build src --profile release\n\
+echo "Build completed. Open ./_build/default/src/web/www/index.html to use the built editor."\n\
+' > /home/opam/.local/bin/build && chmod +x /home/opam/.local/bin/build
+
+ENV PATH="/home/opam/.local/bin:${PATH}"
+CMD ["build"]

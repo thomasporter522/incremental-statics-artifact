@@ -12,8 +12,9 @@
   yojson
   hazelnut_lib
   pprint)
- (preprocess
-  (pps ppx_deriving.show ppx_jane)))
+;  (preprocess
+;   (pps ppx_deriving.show ppx_jane))
+  )
 
 (env
  (dev
