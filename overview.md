@@ -35,6 +35,8 @@ First, [install Docker](https://docs.docker.com/engine/install/).
 
 Enter the `./workbench` directory. 
 
+Run the following command:
+
 ```
 sudo docker build -t ocaml-env .
 ```
@@ -61,7 +63,15 @@ agda All.agda
 
 ### Workbench
 
-TODO.
+1. After building the Docker image per the previous section, run the following command:
+
+```
+sudo docker run -it -p 8000:8000 ocaml-env
+```
+
+2. Navigate to `http://localhost:8000/_build/default/bin/` in your browser to interact with the webapp.
+- Use the "Update Step"and "All Update Steps" buttons to trigger update propagation. 
+- Use the remaining buttons to apply structural edit actions to the program.
 
 ### Mechanization
 
