@@ -1,3 +1,0 @@
-
-all:
-	agda All.agda

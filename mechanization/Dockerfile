@@ -21,4 +21,4 @@ RUN mkdir -p /root/.agda && \
 
 COPY . /app
 WORKDIR /app
-RUN make
+RUN agda All.agda
