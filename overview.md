@@ -76,7 +76,8 @@ Then run the eval script within the image (warnings expected):
 ```
 make eval
 ```
-TODO
+TODO: step by step instructions for reproducing the two perf results in the paper: total factor and plot. Using Docker. 
+TODO: zip this, submit to HOTCRP, submit the checksum, and mark the HOTCRP submission as "ready for review". 
 
 ### Mechanization
 
