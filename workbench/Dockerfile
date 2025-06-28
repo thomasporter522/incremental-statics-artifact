@@ -18,7 +18,7 @@ RUN opam update && \
     eval $(opam env) && \
     opam install -y dune reason incr_dom ocaml-lsp-server core_unix ocaml_intrinsics pprint
 
-RUN pip install matplotlib
+RUN pip install matplotlib dominate
 
 # Copy project files
 COPY . /app

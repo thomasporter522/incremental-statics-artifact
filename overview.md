@@ -35,7 +35,7 @@ Enter the `./workbench` directory.
 ```
 sudo docker build -t ocaml-env .
 ```
-2. Runthe Docker image:
+2. Run the Docker image:
 
 ```
 sudo docker run -it -p 8000:8000 ocaml-env
@@ -76,9 +76,10 @@ Then run the eval script within the image (warnings expected):
 ```
 make eval
 ```
-TODO: step by step instructions for reproducing the two perf results in the paper: total factor and plot. Using Docker. 
-TODO: zip this, submit to HOTCRP, submit the checksum, and mark the HOTCRP submission as "ready for review". 
-
+Finally the result image and arithmean number is presented as a web page and can be seen via:
+```
+python3 -m http.server 8000 --directory out/
+```
 ### Mechanization
 
 - [Core/Core](./mechanization/Core/Core.agda) contains the syntax of MALC and Incremental MALC, as well as the context lookup judgment. 
