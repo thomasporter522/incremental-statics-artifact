@@ -1,10 +1,5 @@
 # Artifact for Incremental Bidirectional Typing via Order Maintenance
 
-## [Meta] TODOS
-
-- Add workbench instructions
-- Add eval instructions
-
 ## Introduction
 
 This artifact contains two components: the system workbench and the Agda mechanization. The workbench both provides a web interface for interactive exploration of the system, as well as the testing infrastructure that supports the performance claims make in the paper. The mechanization is a complete encoding of the paper's formal metatheory and validates every lemma and theorem in the paper. 
@@ -35,11 +30,20 @@ First, [install Docker](https://docs.docker.com/engine/install/).
 
 Enter the `./workbench` directory. 
 
-Run the following command:
+1. Build the Docker image:
 
 ```
 sudo docker build -t ocaml-env .
 ```
+2. Runthe Docker image:
+
+```
+sudo docker run -it -p 8000:8000 ocaml-env
+```
+3. Navigate to `http://localhost:8000/_build/default/bin/` in your browser to interact with the webapp.
+- Use the "Update Step"and "All Update Steps" buttons to trigger update propagation. 
+- Use the remaining buttons to apply structural edit actions to the program.
+
 
 ### Mechanization
 
@@ -63,15 +67,16 @@ agda All.agda
 
 ### Workbench
 
-1. After building the Docker image per the previous section, run the following command:
+To run the performance test, after building the Docker image, run the image:
 
 ```
-sudo docker run -it -p 8000:8000 ocaml-env
+sudo docker run -it ocaml-env bash
 ```
-
-2. Navigate to `http://localhost:8000/_build/default/bin/` in your browser to interact with the webapp.
-- Use the "Update Step"and "All Update Steps" buttons to trigger update propagation. 
-- Use the remaining buttons to apply structural edit actions to the program.
+Then run the eval script within the image (warnings expected):
+```
+make eval
+```
+TODO
 
 ### Mechanization
 
