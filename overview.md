@@ -80,6 +80,21 @@ Finally the result image and arithmean number is presented as a web page and can
 ```
 python3 -m http.server 8000 --directory out/
 ```
+
+#### Trouble Shooting: OOM
+
+The above step by step instruction require ~21GB of memory. 
+
+On a machine with not enough memory, the script will fail or thrash on the command `make eval`. 
+
+If that occurs, one can run the program on a smaller input, by replacing the function invocation "overlapping_mergesort(0, 100)" in workbench/evaleval.re, to "overlapping_mergesort(0, 50)", and rebuiding docker/rerunning image. 
+
+This smaller experiment require 5GB of memory.
+
+Note that due to a smaller input size, the above experiment has a smaller yet still impressive arithmean of 121x.
+
+If the machine have less than 5GB of memory, a even smaller input can be tried, by further reducing the number "50".
+
 ### Mechanization
 
 - [Core/Core](./mechanization/Core/Core.agda) contains the syntax of MALC and Incremental MALC, as well as the context lookup judgment. 
