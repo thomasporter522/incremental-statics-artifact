@@ -14,7 +14,11 @@ open Hazelnut_lib.Marking;
 open Ocaml_intrinsics;
 open Gc;
 
-let _ = Gc.set({...Gc.get(), space_overhead: 1200});
+let _ =
+  Gc.set({
+    ...Gc.get(),
+    space_overhead: 1200,
+  });
 
 let random_element = x => List.nth_exn(x, Random.int(List.length(x)));
 
@@ -409,7 +413,11 @@ type anal_t = {
   ctx: List.t(string),
   term: splitted,
 };
-let anal_here = x => {path: [], ctx: [], term: x};
+let anal_here = x => {
+  path: [],
+  ctx: [],
+  term: x,
+};
 let extend_anal = (loc, ctx, anal) => {
   path: [loc] @ anal.path,
   ctx: ctx @ anal.ctx,
@@ -933,7 +941,13 @@ let incr_edit = (es: eval_state, act: action): (int, eval_state) => {
   let ia = to_iaction(act);
   let (t, is) = timed(() => apply_actions(es.istate, ia));
   let (_, es) = timed(() => step_trace(es.estate, act));
-  (t, {istate: is, estate: es});
+  (
+    t,
+    {
+      istate: is,
+      estate: es,
+    },
+  );
 };
 
 let incr_tyck = (es: eval_state, act: action): (int, eval_state) => {
@@ -947,7 +961,13 @@ let baseline_edit = (es: eval_state, act: action): (int, eval_state) => {
   let ia = to_iaction(act);
   let (_, is) = timed(() => apply_actions(es.istate, ia));
   let (t, es) = timed(() => step_trace(es.estate, act));
-  (t, {istate: is, estate: es});
+  (
+    t,
+    {
+      istate: is,
+      estate: es,
+    },
+  );
 };
 
 let baseline_tyck = (es: eval_state, act: action): (int, eval_state) => {
@@ -970,7 +990,10 @@ let should_skip = act =>
   | Up => true
   | _ => false
   };
-let init_eval_state = () => {istate: initial_state(), estate: (Hole, [])};
+let init_eval_state = () => {
+  istate: initial_state(),
+  estate: (Hole, []),
+};
 let handle =
     (
       name,
