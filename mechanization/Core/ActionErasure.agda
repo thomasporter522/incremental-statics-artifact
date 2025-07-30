@@ -1,6 +1,7 @@
 
 open import Relation.Binary.PropositionalEquality
 
+open import Prelude
 open import Core.Core
 open import Core.Marking
 open import Core.Actions

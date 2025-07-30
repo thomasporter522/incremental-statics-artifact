@@ -3,6 +3,30 @@ open Incremental;
 open UpdateQueue;
 open Tree;
 open State;
+open Pexp;
+
+let string_of_update = (update: Update.t, state: Istate.t): string => {
+  switch (update) {
+  | NewSyn(upper) =>
+    "NewSyn(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewAna(parent) =>
+    "NewAna("
+    ++ string_of_pexp(pexp_of_iexp(child_of_parent(parent), state))
+    ++ ")"
+  | NewAnn(upper) =>
+    "NewAnn(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewAsc(upper) =>
+    "NewAsc(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewListRec(upper) =>
+    "NewListRec(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewY(upper) =>
+    "NewY(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewITE(upper) =>
+    "NewITE(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewTypAp(upper) =>
+    "NewTypAp(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  };
+};
 
 type stepped =
   | Settled
@@ -24,6 +48,14 @@ let var_syn = (e: Iexp.upper, syn: Htyp.t): list(Update.t) => {
   switch (e.middle) {
   | Var(_) => UpdateQueue.update_syn(e, Some(syn))
   | _ => failwith("var_syn called on non-var")
+  };
+};
+
+let ana_of_parent = (parent: Iexp.parent): option(Htyp.t) => {
+  switch (parent) {
+  | Deleted => failwith("ana_of_parent on Deleted term")
+  | Root(_) => None
+  | Lower(lower) => lower.ana
   };
 };
 
@@ -62,12 +94,16 @@ let update_step = (state: Istate.t): stepped => {
           e1.marked = Unmarked;
           let update_list = e2_update @ parent_update;
           UpdateQueue.update_push_list(update_list, q);
-        | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
+        | Lam(_, t, _, _, body, _, _) when Option.is_none(parent.ana) =>
           //print_endine("STEP: StepSynFun");
           let parent_update =
             UpdateQueue.update_syn(
               parent.upper,
-              arrow_unless(t.contents, body.child.syn, parent.ana),
+              arrow_unless(
+                t.contents,
+                body.child.syn,
+                ana_of_parent(parent.upper.parent),
+              ),
             );
           body.marked = Unmarked;
           let update_list = parent_update;
@@ -76,7 +112,11 @@ let update_step = (state: Istate.t): stepped => {
           let parent_update =
             UpdateQueue.update_syn(
               parent.upper,
-              product_unless(e1.child.syn, e2.child.syn, parent.ana),
+              product_unless(
+                e1.child.syn,
+                e2.child.syn,
+                ana_of_parent(parent.upper.parent),
+              ),
             );
           parent.marked = Unmarked; // Removes the mark from the originating child
           let update_list = parent_update;
@@ -89,10 +129,37 @@ let update_step = (state: Istate.t): stepped => {
             UpdateQueue.update_syn(parent.upper, t_side_body);
           let update_list = parent_update;
           UpdateQueue.update_push_list(update_list, q);
+        | TypFun(x, _, e_body, _) when Option.is_none(parent.ana) =>
+          let parent_update =
+            UpdateQueue.update_syn(
+              parent.upper,
+              forall_unless(
+                x^,
+                e_body.child.syn,
+                ana_of_parent(parent.upper.parent),
+              ),
+            );
+          e_body.marked = Unmarked;
+          let update_list = parent_update;
+          UpdateQueue.update_push_list(update_list, q);
+        | TypAp(e_fun, m, t_arg, _) =>
+          let t_fun = e_fun.child.syn;
+          let (x, t_fun_body, m_fun) = matched_forall_typ_opt(t_fun);
+          let t_syn = substitute_opt(t_arg^, x, t_fun_body);
+          m := m_fun;
+          let syn_update = UpdateQueue.update_syn(parent.upper, t_syn);
+          let update_list = syn_update;
+          UpdateQueue.update_push_list(update_list, q);
         | _ when Option.is_some(parent.ana) =>
           //print_endine("STEP: StepSynConsist");
           parent.marked = type_consistent_opt(e.syn, parent.ana)
-        | _ => failwith("unrecognized update step")
+        | _ =>
+          failwith(
+            "Bad NewSyn case "
+            ++ string_of_update(update, state)
+            ++ " in parent "
+            ++ string_of_pexp(pexp_of_iexp(parent.upper, state)),
+          )
         }
       }
     | NewAna(parent) =>
@@ -108,7 +175,7 @@ let update_step = (state: Istate.t): stepped => {
         | _ => ()
         };
       switch (child.middle) {
-      | Lam(_, t_ann, m_ana, m_ann, body, _) =>
+      | Lam(_, t_ann, m_ana, m_ann, body, _, _) =>
         //print_endine("STEP: StepAnaFun");
         let (t_in, t_out, m_ana') = matched_arrow_typ_opt(ana);
         let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
@@ -135,6 +202,18 @@ let update_step = (state: Istate.t): stepped => {
           );
         let update_list = e1_update @ e2_update @ syn_update;
         UpdateQueue.update_push_list(update_list, q);
+      | TypFun(x, m, e_body, _) =>
+        let (t_body_ana, m') = matched_forall_typ_of_bind_opt(ana, x^);
+        m := m';
+        let e_body_update = UpdateQueue.update_ana(e_body, t_body_ana);
+        let syn_update =
+          UpdateQueue.update_syn(
+            child,
+            forall_unless(x^, e_body.child.syn, ana),
+          );
+        mark_parent(Unmarked);
+        let update_list = e_body_update @ syn_update;
+        UpdateQueue.update_push_list(update_list, q);
       | _ =>
         // This case must come after the above case. Relies on the term being subsumable.
         //print_endine("STEP: StepAnaConsist");
@@ -143,7 +222,7 @@ let update_step = (state: Istate.t): stepped => {
     | NewAnn(e) =>
       //print_endine("STEP: StepAnnFun");
       switch (e.middle) {
-      | Lam(_, t, _, _, _, bound_vars) =>
+      | Lam(_, t, _, _, _, bound_vars, _) =>
         let var_list = Tree.list_of_t(bound_vars.contents);
         let update = var => var_syn(var, t.contents);
         let updates = List.concat_map(update, var_list);
@@ -154,7 +233,7 @@ let update_step = (state: Istate.t): stepped => {
     | NewAsc(e) =>
       //print_endine("STEP: StepAsc");
       switch (e.middle) {
-      | Asc(low, asc) =>
+      | Asc(low, asc, _) =>
         let syn_update = UpdateQueue.update_syn(e, Some(asc.contents));
         let ana_update = UpdateQueue.update_ana(low, Some(asc.contents));
         let update_list = ana_update @ syn_update;
@@ -164,7 +243,7 @@ let update_step = (state: Istate.t): stepped => {
     | NewListRec(e) =>
       // print_endline("STEP: StepListRec");
       switch (e.middle) {
-      | ListRec(t) =>
+      | ListRec(t, _) =>
         let syn_type: option(Htyp.t) =
           Some(
             Arrow(
@@ -183,7 +262,7 @@ let update_step = (state: Istate.t): stepped => {
     | NewY(e) =>
       // print_endline("STEP: StepY");
       switch (e.middle) {
-      | Y(t) =>
+      | Y(t, _) =>
         let syn_type: option(Htyp.t) =
           Some(
             Arrow(
@@ -198,6 +277,33 @@ let update_step = (state: Istate.t): stepped => {
         let update_list = syn_update;
         UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewY on non Y")
+      }
+    | NewITE(e) =>
+      switch (e.middle) {
+      | ITE(t, _) =>
+        let syn_type: option(Htyp.t) =
+          Some(
+            Arrow(
+              Bool,
+              Arrow(Arrow(Unit, t^), Arrow(Arrow(Unit, t^), t^)),
+            ),
+          );
+        let syn_update = UpdateQueue.update_syn(e, syn_type);
+        let update_list = syn_update;
+        UpdateQueue.update_push_list(update_list, q);
+      | _ => failwith("NewITE on non ITE")
+      }
+    | NewTypAp(e) =>
+      switch (e.middle) {
+      | TypAp(e_fun, m, t_arg, _) =>
+        let t_fun = e_fun.child.syn;
+        let (x, t_fun_body, m_fun) = matched_forall_typ_opt(t_fun);
+        let t_syn = substitute_opt(t_arg^, x, t_fun_body);
+        m := m_fun;
+        let syn_update = UpdateQueue.update_syn(e, t_syn);
+        let update_list = syn_update;
+        UpdateQueue.update_push_list(update_list, q);
+      | _ => failwith("NewTypAp on non TypAp")
       }
     };
   };

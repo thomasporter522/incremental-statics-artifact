@@ -1,6 +1,24 @@
+module Bind: {
+  [@deriving sexp]
+  type t =
+    | Hole
+    | Var(string);
+
+  let compare: (t, t) => int;
+};
+
+module Mark: {
+  [@deriving (sexp, compare)]
+  type t =
+    | Unmarked
+    | Marked;
+};
+
 module Htyp: {
   [@deriving (sexp, compare)]
   type t =
+    | TypVar(Bind.t, Mark.t)
+    | ForAll(Bind.t, t)
     | Arrow(t, t)
     | Product(t, t)
     | Num
@@ -17,7 +35,10 @@ module Ztyp: {
     | LArrow(t, Htyp.t)
     | RArrow(Htyp.t, t)
     | LProduct(t, Htyp.t)
-    | RProduct(Htyp.t, t);
+    | RProduct(Htyp.t, t)
+    | ForAll(Bind.t, t)
+    // A second variant of the ForAll which represents cursor selection
+    | ForAllCursorBind(Bind.t, Htyp.t);
 };
 
 module ProdSide: {
@@ -27,30 +48,18 @@ module ProdSide: {
     | Snd;
 };
 
-module Bind: {
-  [@deriving sexp]
-  type t =
-    | Hole
-    | Var(string);
-};
-
 module MarkMessage: {
   [@deriving (sexp, compare)]
   type t =
     | Free
     | NonArrowAp
     | NonArrowLam
+    | NonForAllTypAp
+    | NonForAllTypFun
     | NonProdPair
     | NonProdProj
     | LamAnnIncon
     | Inconsistent;
-};
-
-module Mark: {
-  [@deriving (sexp, compare)]
-  type t =
-    | Unmarked
-    | Marked;
 };
 
 exception Unimplemented;
@@ -68,7 +77,17 @@ let matched_proj_typ_opt:
   (ProdSide.t, option(Htyp.t)) => (option(Htyp.t), Mark.t);
 let type_consistent: (Htyp.t, Htyp.t) => Mark.t;
 let type_consistent_opt: (option(Htyp.t), option(Htyp.t)) => Mark.t;
+let matched_forall_typ: Htyp.t => (Bind.t, Htyp.t, Mark.t);
+let matched_forall_typ_opt:
+  option(Htyp.t) => (Bind.t, option(Htyp.t), Mark.t);
+let matched_forall_typ_of_bind: (Htyp.t, Bind.t) => (Htyp.t, Mark.t);
+let matched_forall_typ_of_bind_opt:
+  (option(Htyp.t), Bind.t) => (option(Htyp.t), Mark.t);
 let arrow_unless:
   (Htyp.t, option(Htyp.t), option(Htyp.t)) => option(Htyp.t);
 let product_unless:
   (option(Htyp.t), option(Htyp.t), option(Htyp.t)) => option(Htyp.t);
+let forall_unless:
+  (Bind.t, option(Htyp.t), option(Htyp.t)) => option(Htyp.t);
+let substitute: (Htyp.t, Bind.t, Htyp.t) => Htyp.t;
+let substitute_opt: (Htyp.t, Bind.t, option(Htyp.t)) => option(Htyp.t);

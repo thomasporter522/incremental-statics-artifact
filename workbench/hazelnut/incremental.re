@@ -11,6 +11,8 @@ module InQueue = {
     mutable asc: bool,
     mutable list_rec: bool,
     mutable y: bool,
+    mutable ite: bool,
+    mutable typ_ap: bool,
   };
 
   [@deriving sexp]
@@ -27,7 +29,16 @@ module InQueue = {
     ann: false,
     list_rec: false,
     y: false,
+    ite: false,
+    typ_ap: false,
   };
+};
+
+module BinderKind = {
+  [@deriving (sexp, compare)]
+  type t =
+    | Lam
+    | TypFun;
 };
 
 module Iexp = {
@@ -52,16 +63,19 @@ module Iexp = {
         ref(Mark.t),
         lower,
         var_set,
+        typ_binders,
       )
     | Ap(lower, ref(Mark.t), lower)
     | Pair(lower, lower, ref(Mark.t))
     | Proj(ProdSide.t, lower, ref(Mark.t))
-    | Asc(lower, ref(Htyp.t))
+    | Asc(lower, ref(Htyp.t), typ_binders)
     | Nil
     | Cons
-    | ListRec(ref(Htyp.t))
-    | Y(ref(Htyp.t))
-    | ITE(ref(Htyp.t))
+    | ListRec(ref(Htyp.t), typ_binders)
+    | Y(ref(Htyp.t), typ_binders)
+    | ITE(ref(Htyp.t), typ_binders)
+    | TypFun(ref(Bind.t), ref(Mark.t), lower, var_set)
+    | TypAp(lower, ref(Mark.t), ref(Htyp.t), typ_binders)
     | EHole
 
   and upper = {
@@ -75,7 +89,7 @@ module Iexp = {
 
   and root = {
     mutable root_child: upper,
-    free_vars: Hashtbl.t(string, var_set),
+    free_vars: Hashtbl.t((string, BinderKind.t), var_set),
     in_queue_root: InQueue.root,
   }
 
@@ -85,7 +99,8 @@ module Iexp = {
     | Lower(lower) // child location of a constuctor
 
   and binder = parent // pointer from a variable occurrence to binding location
-  and var_set = ref(Tree.t(upper)); // pointers from a binder to the variable occurrences it binds
+  and var_set = ref(Tree.t(upper)) // pointers from a binder to the variable occurrences it binds
+  and typ_binders = Hashtbl.t(string, parent); // stored on the expression immediately containing a type
 
   let add_bound_var = (var: upper, bound_vars: var_set) => {
     let (left, right) = var.interval;

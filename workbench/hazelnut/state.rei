@@ -12,7 +12,7 @@ module Icursor: {
 };
 
 module BinderSet: {
-  type t = Hashtbl.t(string, Tree.t(Iexp.upper));
+  type t = Hashtbl.t((string, BinderKind.t), Tree.t(Iexp.upper));
 };
 
 module Istate: {

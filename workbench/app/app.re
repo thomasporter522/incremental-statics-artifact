@@ -4,7 +4,7 @@ open Monad_lib.Monad;
 open Hazelnut_lib.Hazelnut;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Actions;
-open Hazelnut_lib.Update;
+open Hazelnut_lib.UpdateProcess;
 open Hazelnut_lib.Pexp;
 open Hazelnut_lib.Marking;
 
@@ -14,6 +14,7 @@ type state = {
   // t: Htyp.t,
   warning: option(string),
   var_input: string,
+  typvar_input: string,
   let_input: string,
   lit_input: string,
   bool_input: string,
@@ -37,6 +38,7 @@ module Model = {
       // t: Hole,
       warning: None,
       var_input: "",
+      typvar_input: "",
       let_input: "",
       lit_input: "",
       bool_input: "true | false",
@@ -52,6 +54,7 @@ module Action = {
   [@deriving sexp]
   type input_location =
     | Var
+    | TypVar
     | Let
     | NumLit
     | BoolLit;
@@ -78,7 +81,10 @@ let apply_action =
     let state = model.state;
 
     let warn = (warning: string): Model.t =>
-      Model.set({...state, warning: Some(warning)});
+      Model.set({
+        ...state,
+        warning: Some(warning),
+      });
 
     let marking_validate = () =>
       switch (marked_correctly(state.istate.ephemeral.root.root_child)) {
@@ -93,8 +99,26 @@ let apply_action =
             ),
           ),
         );
+        print_endline(
+          "synthesizing "
+          ++ (
+            switch (state.istate.ephemeral.root.root_child.syn) {
+            | Some(syn) => string_of_pexp(pexp_of_htyp(syn))
+            | None => "nothing"
+            }
+          ),
+        );
         print_endline("should see:");
         print_endline(string_of_pexp(pexp_of_iexp(e', state.istate)));
+        print_endline(
+          "synthesizing "
+          ++ (
+            switch (e'.syn) {
+            | Some(syn) => string_of_pexp(pexp_of_htyp(syn))
+            | None => "nothing"
+            }
+          ),
+        );
         failwith("Marking failure");
       };
 
@@ -104,22 +128,57 @@ let apply_action =
         let istate' = apply_action(state.istate, action);
         let action_string =
           state.action_string ++ string_of_action(action) ++ ",";
-        Model.set({...state, action_string, istate: istate'});
+        Model.set({
+          ...state,
+          action_string,
+          istate: istate',
+        });
       }) {
       | Unimplemented => warn("Unimplemented")
       }
     | UpdateStepOut =>
       all_update_steps(state.istate);
       marking_validate();
-      Model.set({...state, vizbit: !state.vizbit});
+      Model.set({
+        ...state,
+        vizbit: !state.vizbit,
+      });
     | UpdateStep =>
       let _ = update_step(state.istate);
-      Model.set({...state, vizbit: !state.vizbit});
-    | UpdateInput(Var, var_input) => Model.set({...state, var_input})
-    | UpdateInput(Let, let_input) => Model.set({...state, let_input})
-    | UpdateInput(NumLit, lit_input) => Model.set({...state, lit_input})
-    | UpdateInput(BoolLit, bool_input) => Model.set({...state, bool_input})
-    | ShowWarning(warning) => Model.set({...state, warning: Some(warning)})
+      Model.set({
+        ...state,
+        vizbit: !state.vizbit,
+      });
+    | UpdateInput(Var, var_input) =>
+      Model.set({
+        ...state,
+        var_input,
+      })
+    | UpdateInput(TypVar, typvar_input) =>
+      Model.set({
+        ...state,
+        typvar_input,
+      })
+    | UpdateInput(Let, let_input) =>
+      Model.set({
+        ...state,
+        let_input,
+      })
+    | UpdateInput(NumLit, lit_input) =>
+      Model.set({
+        ...state,
+        lit_input,
+      })
+    | UpdateInput(BoolLit, bool_input) =>
+      Model.set({
+        ...state,
+        bool_input,
+      })
+    | ShowWarning(warning) =>
+      Model.set({
+        ...state,
+        warning: Some(warning),
+      })
     };
   };
 
@@ -317,6 +376,14 @@ let view =
             None,
           ),
           button("Insert Y", Action.HazelnutAction(InsertY), None),
+          button(
+            "Construct TypVar",
+            Action.HazelnutAction(InsertTypVar(state.typvar_input)),
+            Some((TypVar, state.typvar_input)),
+          ),
+          button("WrapTypFun", Action.HazelnutAction(WrapTypFun), None),
+          button("WrapTypAp", Action.HazelnutAction(WrapTypAp), None),
+          button("WrapForAll", Action.HazelnutAction(WrapForAll), None),
         ]);
 
       let unwrap_buttons =
@@ -348,6 +415,7 @@ let view =
         | None => []
         },
       );
+
     Node.div([expression, buttons, warning]);
   };
 

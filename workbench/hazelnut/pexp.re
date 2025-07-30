@@ -50,6 +50,10 @@ let string_of_action: Iaction.t => string =
     "WrapProj(" ++ string_of_prod_side(prod_side) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
+  | WrapTypAp => "WrapTypAp"
+  | WrapTypFun => "WrapTypFun"
+  | WrapForAll => "WrapForAll"
+  | InsertTypVar(x) => "InsertTypVar(\"" ++ x ++ "\")"
   | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
 
 module Pexp = {
@@ -80,13 +84,43 @@ module Pexp = {
     | ListRec(t)
     | Y(t)
     | Asc(t, t)
+    | TypFun(t, t)
+    | TypAp(t, t)
+    | ForAll(t, t)
     | Hole
     | Interval(string, t, string)
     | Mark(t, string);
 };
 
+let pexp_of_bind: Bind.t => Pexp.t = {
+  fun
+  | Hole => Hole
+  | Var(x) => Var(x);
+};
+
+let string_of_mark_message: Hazelnut.MarkMessage.t => string = {
+  fun
+  | Free => "Free"
+  | NonArrowAp => "NonArrowAp"
+  | NonArrowLam => "NonArrowLam"
+  | NonForAllTypAp => "NonForAllTypAp"
+  | NonForAllTypFun => "NonForAllTypFun"
+  | NonProdPair => "NonProdPair"
+  | NonProdProj => "NonProdProj"
+  | LamAnnIncon => "LamAnnIncon"
+  | Inconsistent => "Inconsistent";
+};
+
+let pexp_markif = (b: Mark.t, m: MarkMessage.t, exp: Pexp.t): Pexp.t =>
+  switch (b) {
+  | Unmarked => exp
+  | Marked => Mark(exp, string_of_mark_message(m))
+  };
+
 let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
   fun
+  | ForAll(x, t) => ForAll(pexp_of_bind(x), pexp_of_htyp(t))
+  | TypVar(x, m) => pexp_markif(m, MarkMessage.Free, pexp_of_bind(x))
   | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Product(t1, t2) => Product(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Num => Num
@@ -106,30 +140,10 @@ let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
   | LArrow(z, t) => Arrow(pexp_of_ztyp(z), pexp_of_htyp(t))
   | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z))
   | LProduct(z, t) => Product(pexp_of_ztyp(z), pexp_of_htyp(t))
-  | RProduct(t, z) => Product(pexp_of_htyp(t), pexp_of_ztyp(z));
-
-let pexp_of_bind: Bind.t => Pexp.t = {
-  fun
-  | Hole => Hole
-  | Var(x) => Var(x);
-};
-
-let string_of_mark_message: Hazelnut.MarkMessage.t => string = {
-  fun
-  | Free => "Free"
-  | NonArrowAp => "NonArrowAp"
-  | NonArrowLam => "NonArrowLam"
-  | NonProdPair => "NonProdPair"
-  | NonProdProj => "NonProdProj"
-  | LamAnnIncon => "LamAnnIncon"
-  | Inconsistent => "Inconsistent";
-};
-
-let pexp_markif = (b: Mark.t, m: MarkMessage.t, exp: Pexp.t): Pexp.t =>
-  switch (b) {
-  | Unmarked => exp
-  | Marked => Mark(exp, string_of_mark_message(m))
-  };
+  | RProduct(t, z) => Product(pexp_of_htyp(t), pexp_of_ztyp(z))
+  | ForAll(x, t) => ForAll(pexp_of_bind(x), pexp_of_ztyp(t))
+  | ForAllCursorBind(x, t) =>
+    ForAll(Cursor(pexp_of_bind(x)), pexp_of_htyp(t));
 
 let rec unwrap_extras: Pexp.t => (Pexp.t, Pexp.t => Pexp.t) =
   fun
@@ -213,6 +227,18 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
       | _ => failwith("NewY on non Y (pexp)")
       }
     | NewY(_) => d
+    | NewITE(e') when e === e' =>
+      switch (unwrap_extras(d)) {
+      | (ITE(t), rewrap) => rewrap(ITE(New(t)))
+      | _ => failwith("NewITE on non ITE (pexp)")
+      }
+    | NewITE(_) => d
+    | NewTypAp(e') when e === e' =>
+      switch (unwrap_extras(d)) {
+      | (TypAp(e_fun, t_arg), rewrap) => rewrap(TypAp(e_fun, New(t_arg)))
+      | _ => failwith("NewTypAp on non TypAP (pexp)")
+      }
+    | NewTypAp(_) => d
     };
   };
   let with_new_types =
@@ -231,7 +257,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) =>
     Plus(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
-  | Lam(x, t, m1, m2, body, _bound_vars) =>
+  | Lam(x, t, m1, m2, body, _bound_vars, _typ_binders) =>
     let pb: Pexp.t =
       switch (s.persistent.c) {
       | CursorBind(e') when e'.middle === e =>
@@ -270,7 +296,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       | Snd => Snd(pexp_of_iexp_lower(e, s))
       },
     )
-  | Asc(body, t) =>
+  | Asc(body, t, _typ_binders) =>
     let pt =
       switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
@@ -279,27 +305,44 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
     Asc(pexp_of_iexp_lower(body, s), pt);
   | Nil => Nil
   | Cons => Cons
-  | ListRec(t) =>
+  | ListRec(t, _typ_binders) =>
     let pt =
       switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
     ListRec(pt);
-  | Y(t) =>
+  | Y(t, _typ_binders) =>
     let pt =
       switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
     Y(pt);
-  | ITE(t) =>
+  | ITE(t, _typ_binders) =>
     let pt =
       switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
     ITE(pt);
+  | TypFun(x, m, e_body, _typ_binders) =>
+    let pb: Pexp.t =
+      switch (s.persistent.c) {
+      | CursorBind(e') when e'.middle === e =>
+        Cursor(pexp_of_bind(x.contents))
+      | _ => pexp_of_bind(x.contents)
+      };
+    let body_lower = pexp_of_iexp_lower(e_body, s);
+    pexp_markif(m.contents, NonForAllTypFun, TypFun(pb, body_lower));
+  | TypAp(e_fun, m, t_arg, _typ_binders) =>
+    let pt =
+      switch (s.persistent.c) {
+      | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
+      | _ => pexp_of_htyp(t_arg.contents)
+      };
+    let fun_lower = pexp_of_iexp_lower(e_fun, s);
+    pexp_markif(m.contents, NonForAllTypAp, TypAp(fun_lower, pt));
   };
 }
 
@@ -314,6 +357,8 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
     | NewAsc(_) => None
     | NewListRec(_) => None
     | NewY(_) => None
+    | NewITE(_) => None
+    | NewTypAp(_) => None
     };
   };
   switch (
@@ -336,6 +381,8 @@ let pexp_of_root = (s: Istate.t): Pexp.t => {
     | NewAsc(_) => false
     | NewListRec(_) => false
     | NewY(_) => false
+    | NewITE(_) => false
+    | NewTypAp(_) => false
     };
   };
   List.exists(filter_updates, UpdateQueue.list_of_t(s.ephemeral.q))
@@ -370,6 +417,9 @@ let rec prec: Pexp.t => int =
   | ITE(_) => 4
   | ListRec(_) => 4
   | Y(_) => 4
+  | TypFun(_) => 0
+  | TypAp(_) => 2
+  | ForAll(_) => 1
   | Hole => 0
   | Interval(_) => 0
   | Mark(_, _) => 0;
@@ -408,6 +458,9 @@ let rec assoc: Pexp.t => Side.t =
   | ITE(_) => Left
   | ListRec(_) => Left
   | Y(_) => Left
+  | TypFun(_) => Atom
+  | TypAp(_) => Left
+  | ForAll(_) => Atom
   | Hole => Atom
   | Interval(_) => Atom
   | Mark(_, _) => Atom;
@@ -456,6 +509,12 @@ let rec string_of_pexp: Pexp.t => string =
   | ITE(t) => "ITE[" ++ string_of_pexp(t) ++ "]"
   | ListRec(t) => "ListRec[" ++ string_of_pexp(t) ++ "]"
   | Y(t) => "Y[" ++ string_of_pexp(t) ++ "]"
+  | TypFun(x, e) =>
+    "typfun " ++ string_of_pexp(x) ++ " ↦ (" ++ string_of_pexp(e) ++ ")"
+  | TypAp(e, t) as outer =>
+    paren(e, outer, Side.Left) ++ " " ++ paren(t, outer, Side.Right)
+  | ForAll(x, t) =>
+    "forall " ++ string_of_pexp(x) ++ " ↦ (" ++ string_of_pexp(t) ++ ")"
   | Interval(n1, e, n2) =>
     "{" ++ n1 ++ "]" ++ string_of_pexp(e) ++ "[" ++ n2 ++ "}"
   | Mark(e, m) => "{" ++ string_of_pexp(e) ++ " | " ++ m ++ "}"

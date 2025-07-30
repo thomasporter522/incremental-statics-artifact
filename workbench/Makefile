@@ -18,14 +18,11 @@ clean:
 	dune clean
 
 deps:
-	opam install dune reason incr_dom ocaml-lsp-server
+	opam install dune reason incr_dom ocaml-lsp-server pprint core_unix
 
-.PHONY: test distill eval
+.PHONY: test eval
 test:
 	dune test
-
-distill:
-	dune build test/distill_actions.re.ml
 
 eval:
 	python3 eval/eval.py
